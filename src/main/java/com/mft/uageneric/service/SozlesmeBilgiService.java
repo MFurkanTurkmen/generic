@@ -9,6 +9,7 @@ import com.mft.uageneric.repository.SozlesmeBilgiKolonRepository;
 import com.mft.uageneric.repository.SozlesmeBilgiRepository;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
+import org.hibernate.Hibernate;
 import org.springframework.stereotype.Service;
 
 import java.lang.reflect.Field;
@@ -35,20 +36,17 @@ public class SozlesmeBilgiService {
 
         for (SozlesmeBilgiKolonRS kolon : kolonlar) {
             try {
-                // Handle nested objects (for combo fields)
-                if (kolon.getType().equals("combo")) {
+                if ("combo".equals(kolon.getType())) {
+                    // Combo alanları için özel işlem
                     handleComboField(sozlesmeBilgi, kolon);
+                    // Combo seçeneklerini yükle
+                    loadComboOptions(kolon);
                 } else {
-                    // Handle regular fields
+                    // Normal alanlar için değer ataması
                     Field field = sozlesmeBilgi.getClass().getDeclaredField(kolon.getCode());
                     field.setAccessible(true);
                     Object value = field.get(sozlesmeBilgi);
                     kolon.setValue(value);
-                }
-
-                // Load options for combo fields
-                if (kolon.getType().equals("combo")) {
-                    loadComboOptions(kolon);
                 }
             } catch (Exception e) {
                 e.printStackTrace();
@@ -57,6 +55,7 @@ public class SozlesmeBilgiService {
         return kolonlar;
     }
 
+
     private void handleComboField(SozlesmeBilgi sozlesmeBilgi, SozlesmeBilgiKolonRS kolon) {
         try {
             Field field = sozlesmeBilgi.getClass().getDeclaredField(kolon.getCode());
@@ -64,8 +63,11 @@ public class SozlesmeBilgiService {
             Object value = field.get(sozlesmeBilgi);
 
             if (value != null) {
-                // For combo fields, we want to get the ID of the related entity
-                Field idField = value.getClass().getDeclaredField("id");
+                // Hibernate proxy'yi başlat
+                Hibernate.initialize(value);
+
+                // ID'yi al
+                Field idField = value.getClass().getSuperclass().getDeclaredField("id");
                 idField.setAccessible(true);
                 Long id = (Long) idField.get(value);
                 kolon.setValue(id);
@@ -74,18 +76,28 @@ public class SozlesmeBilgiService {
             e.printStackTrace();
         }
     }
-
     private void loadComboOptions(SozlesmeBilgiKolonRS kolon) {
         try {
+            if (kolon.getEntity() == null || kolon.getEntity().isEmpty()) {
+                return;
+            }
+
             String entityName = kolon.getEntity();
+            // Entity sınıfının tam yolunu belirle
+            String fullEntityName = "com.mft.uageneric.entity." + entityName;
+            Class<?> entityClass = Class.forName(fullEntityName);
+
+            // JPQL sorgusu oluştur
             String query = "SELECT e FROM " + entityName + " e";
             List<?> results = entityManager.createQuery(query).getResultList();
 
             List<Map<String, Object>> options = new ArrayList<>();
             for (Object result : results) {
                 Map<String, Object> option = new HashMap<>();
-                Field idField = result.getClass().getDeclaredField("id");
-                Field adField = result.getClass().getDeclaredField("ad");
+
+                // ID ve ad alanlarını al
+                Field idField = entityClass.getDeclaredField("id");
+                Field adField = entityClass.getDeclaredField("ad");
                 idField.setAccessible(true);
                 adField.setAccessible(true);
 
@@ -98,7 +110,6 @@ public class SozlesmeBilgiService {
             e.printStackTrace();
         }
     }
-
     private List<SozlesmeBilgiKolonRS> getKolon(String faaliyetNo) {
         SozlesmeBilgiKolon sozlesmeBilgiKolon = sozlesmeBilgiKolonRepository.findByFaaliyetNo(faaliyetNo);
         List<SozlesmeBilgiKolonRS> kolonlar = new ArrayList<>();

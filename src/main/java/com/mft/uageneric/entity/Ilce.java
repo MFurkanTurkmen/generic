@@ -1,5 +1,6 @@
 package com.mft.uageneric.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -9,6 +10,7 @@ import lombok.*;
 @Getter
 @Setter
 @Builder
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Ilce {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
