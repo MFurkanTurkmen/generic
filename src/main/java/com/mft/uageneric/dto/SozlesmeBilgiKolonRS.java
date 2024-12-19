@@ -5,10 +5,13 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.util.List;
+import java.util.Map;
+
 @Getter
+@Setter
 @AllArgsConstructor
 @NoArgsConstructor
-@Setter
 public class SozlesmeBilgiKolonRS {
     private String label;
     private String code;
@@ -17,5 +20,5 @@ public class SozlesmeBilgiKolonRS {
     private String category;
     private Object value;
     private String entity;
-    private Object options;
+    private List<Map<String, Object>> options;
 }
